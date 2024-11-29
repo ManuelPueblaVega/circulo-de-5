@@ -1,0 +1,250 @@
+<html><head><base href="https://github.com" />
+<meta charset="UTF-8">
+<title>Círculo de Quintas Interactivo con Sonido</title>
+<style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #1a1a1a;
+        font-family: Arial, sans-serif;
+        color: white;
+    }
+
+    .container {
+        text-align: center;
+        padding: 20px;
+    }
+
+    .circle-container {
+        position: relative;
+        width: 500px;
+        height: 500px;
+        margin: 20px auto;
+    }
+
+    .note {
+        position: absolute;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .note:hover {
+        transform: scale(1.1);
+        box-shadow: 0 0 20px rgba(255,255,255,0.5);
+    }
+
+    .major { background: #4CAF50; }
+    .minor { background: #9C27B0; }
+
+    .info-panel {
+        margin-top: 20px;
+        padding: 20px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        max-width: 800px;
+        margin: 20px auto;
+    }
+
+    .selected {
+        transform: scale(1.2);
+        box-shadow: 0 0 30px rgba(255,255,255,0.8);
+    }
+
+    .play-button {
+        margin: 5px;
+        padding: 8px 15px;
+        background: #4CAF50;
+        border: none;
+        border-radius: 5px;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .play-button:hover {
+        background: #45a049;
+    }
+
+    .chord-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .chord-box {
+        background: rgba(255,255,255,0.1);
+        padding: 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .chord-box:hover {
+        background: rgba(255,255,255,0.2);
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>Círculo de Quintas Interactivo con Sonido</h1>
+    <div class="circle-container" id="circleContainer"></div>
+    <div class="info-panel" id="infoPanel">
+        <h2>Información de la tonalidad</h2>
+        <p>Selecciona una nota para ver su información y escuchar sus acordes</p>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
+<script>
+const notes = [
+    { note: 'C', major: true }, { note: 'G', major: true },
+    { note: 'D', major: true }, { note: 'A', major: true },
+    { note: 'E', major: true }, { note: 'B', major: true },
+    { note: 'F♯', major: true }, { note: 'D♭', major: true },
+    { note: 'A♭', major: true }, { note: 'E♭', major: true },
+    { note: 'B♭', major: true }, { note: 'F', major: true }
+];
+
+const noteToFreq = {
+    'C': ['C4', 'E4', 'G4'], 'Cm': ['C4', 'Eb4', 'G4'],
+    'G': ['G4', 'B4', 'D5'], 'Gm': ['G4', 'Bb4', 'D5'],
+    'D': ['D4', 'F#4', 'A4'], 'Dm': ['D4', 'F4', 'A4'],
+    'A': ['A4', 'C#5', 'E5'], 'Am': ['A4', 'C5', 'E5'],
+    'E': ['E4', 'G#4', 'B4'], 'Em': ['E4', 'G4', 'B4'],
+    'B': ['B4', 'D#5', 'F#5'], 'Bm': ['B4', 'D5', 'F#5'],
+    'F♯': ['F#4', 'A#4', 'C#5'], 'F♯m': ['F#4', 'A4', 'C#5'],
+    'D♭': ['Db4', 'F4', 'Ab4'], 'D♭m': ['Db4', 'E4', 'Ab4'],
+    'A♭': ['Ab4', 'C5', 'Eb5'], 'A♭m': ['Ab4', 'B4', 'Eb5'],
+    'E♭': ['Eb4', 'G4', 'Bb4'], 'E♭m': ['Eb4', 'Gb4', 'Bb4'],
+    'B♭': ['Bb4', 'D5', 'F5'], 'B♭m': ['Bb4', 'Db5', 'F5'],
+    'F': ['F4', 'A4', 'C5'], 'Fm': ['F4', 'Ab4', 'C5']
+};
+
+const relativeMinors = {
+    'C': 'Am', 'G': 'Em', 'D': 'Bm', 'A': 'F♯m', 'E': 'C♯m', 'B': 'G♯m',
+    'F♯': 'D♯m', 'D♭': 'B♭m', 'A♭': 'Fm', 'E♭': 'Cm', 'B♭': 'Gm', 'F': 'Dm'
+};
+
+const keySignatures = {
+    'C': '0 alteraciones', 'G': '1♯ (F♯)', 'D': '2♯ (F♯,C♯)',
+    'A': '3♯ (F♯,C♯,G♯)', 'E': '4♯ (F♯,C♯,G♯,D♯)', 'B': '5♯ (F♯,C♯,G♯,D♯,A♯)',
+    'F♯': '6♯ (F♯,C♯,G♯,D♯,A♯,E♯)', 'D♭': '5♭ (B♭,E♭,A♭,D♭,G♭)',
+    'A♭': '4♭ (B♭,E♭,A♭,D♭)', 'E♭': '3♭ (B♭,E♭,A♭)',
+    'B♭': '2♭ (B♭,E♭)', 'F': '1♭ (B♭)'
+};
+
+const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+
+function playChord(root, chordType = 'major') {
+    let chord;
+    if (noteToFreq[root + (chordType === 'minor' ? 'm' : '')]) {
+        chord = noteToFreq[root + (chordType === 'minor' ? 'm' : '')];
+    } else {
+        chord = noteToFreq[root];
+    }
+    synth.triggerAttackRelease(chord, "2n");
+}
+
+function createCircle() {
+    const container = document.getElementById('circleContainer');
+    const radius = 200;
+    const centerX = 250;
+    const centerY = 250;
+
+    notes.forEach((noteObj, index) => {
+        const angle = (index * 30 - 90) * (Math.PI / 180);
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+
+        const noteElement = document.createElement('div');
+        noteElement.className = `note ${noteObj.major ? 'major' : 'minor'}`;
+        noteElement.textContent = noteObj.note;
+        noteElement.style.left = (x - 30) + 'px';
+        noteElement.style.top = (y - 30) + 'px';
+
+        noteElement.addEventListener('click', () => showNoteInfo(noteObj.note));
+        container.appendChild(noteElement);
+    });
+}
+
+function getDiatonicChords(note) {
+    const chords = [
+        { roman: 'I', type: 'major', note: note },
+        { roman: 'ii', type: 'minor', note: getNextDiatonic(note, 1) },
+        { roman: 'iii', type: 'minor', note: getNextDiatonic(note, 2) },
+        { roman: 'IV', type: 'major', note: getNextDiatonic(note, 3) },
+        { roman: 'V', type: 'major', note: getNextDiatonic(note, 4) },
+        { roman: 'vi', type: 'minor', note: getNextDiatonic(note, 5) },
+        { roman: 'vii°', type: 'diminished', note: getNextDiatonic(note, 6) }
+    ];
+    return chords;
+}
+
+function getNextDiatonic(root, steps) {
+    const majorScale = getMajorScale(root);
+    return majorScale[steps % 7];
+}
+
+function getMajorScale(root) {
+    const allNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    const startIndex = allNotes.indexOf(root.replace(/[♯♭]/, ''));
+    let scale = [];
+    
+    for (let i = 0; i < 7; i++) {
+        const noteIndex = (startIndex + i) % 7;
+        scale.push(allNotes[noteIndex]);
+    }
+    
+    return scale;
+}
+
+function showNoteInfo(note) {
+    const infoPanel = document.getElementById('infoPanel');
+    const relativeMinor = relativeMinors[note];
+    const keySignature = keySignatures[note];
+    const diatonicChords = getDiatonicChords(note);
+
+    document.querySelectorAll('.note').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.note').forEach(el => {
+        if (el.textContent === note) {
+            el.classList.add('selected');
+        }
+    });
+
+    let chordsHTML = '<div class="chord-grid">';
+    diatonicChords.forEach(chord => {
+        chordsHTML += `
+            <div class="chord-box" onclick="playChord('${chord.note}', '${chord.type}')">
+                <h3>${chord.roman}</h3>
+                <p>${chord.note} ${chord.type}</p>
+                <button class="play-button">Tocar</button>
+            </div>
+        `;
+    });
+    chordsHTML += '</div>';
+
+    infoPanel.innerHTML = `
+        <h2>Tonalidad: ${note} Mayor</h2>
+        <p>Relativa menor: ${relativeMinor}</p>
+        <p>Armadura: ${keySignature}</p>
+        <h3>Acordes Diatónicos:</h3>
+        ${chordsHTML}
+    `;
+}
+
+createCircle();
+</script>
+</body>
+</html>
